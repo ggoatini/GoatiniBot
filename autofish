@@ -1,0 +1,462 @@
+
+-- GOATINI AUTO FISH
+-- BLACK & GOLD EDITION
+-- POLSKI / ENGLISH
+-- M = START / STOP
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local VIM = game:GetService("VirtualInputManager")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local pg = player:WaitForChild("PlayerGui")
+local env = (getgenv and getgenv()) or _G
+
+-- STOP PREVIOUS VERSIONS
+for _, name in ipairs({
+    "AutoFishV13Stop",
+    "AutoFishV14Stop",
+    "GoatiniAutoFishStop"
+}) do
+    if type(env[name]) == "function" then
+        pcall(env[name])
+    end
+end
+
+for _, name in ipairs({
+    "AutoFishV13",
+    "AutoFishV14",
+    "GoatiniAutoFish"
+}) do
+    local old = pg:FindFirstChild(name)
+    if old then old:Destroy() end
+end
+
+local running = true
+local enabled = false
+local language = "PL"
+local clickDelay = 0.15
+local lastClick = 0
+local clicks = 0
+local connections = {}
+
+-- COLORS
+local GOLD = Color3.fromRGB(255,205,65)
+local GOLD_DARK = Color3.fromRGB(170,119,25)
+local DARK = Color3.fromRGB(14,14,17)
+local DARK2 = Color3.fromRGB(29,29,32)
+local WHITE = Color3.fromRGB(245,245,245)
+local MUTED = Color3.fromRGB(165,165,165)
+local GREEN = Color3.fromRGB(85,225,130)
+
+-- TRANSLATIONS
+local translations = {
+    PL = {
+        active = "STATUS: AKTYWNY",
+        inactive = "STATUS: WYŁĄCZONY",
+        start = "URUCHOM AUTO FISH",
+        stop = "ZATRZYMAJ AUTO FISH",
+        clicks = "KLIKNIĘCIA: ",
+        delay = "OPÓŹNIENIE: %.2f s",
+        hint = "M = WŁ./WYŁ.  |  X = ZAMKNIJ",
+        error = "BŁĄD KLIKANIA"
+    },
+    EN = {
+        active = "STATUS: ACTIVE",
+        inactive = "STATUS: DISABLED",
+        start = "START AUTO FISH",
+        stop = "STOP AUTO FISH",
+        clicks = "CLICKS: ",
+        delay = "CLICK DELAY: %.2f s",
+        hint = "M = ON/OFF  |  X = CLOSE",
+        error = "CLICK ERROR"
+    }
+}
+
+-- GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "GoatiniAutoFish"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 1000
+gui.Parent = pg
+
+local panel = Instance.new("Frame")
+panel.Size = UDim2.fromOffset(320,285)
+panel.Position = UDim2.fromOffset(35,180)
+panel.BackgroundColor3 = DARK
+panel.BorderSizePixel = 0
+panel.Active = true
+panel.Parent = gui
+
+local panelCorner = Instance.new("UICorner")
+panelCorner.CornerRadius = UDim.new(0,13)
+panelCorner.Parent = panel
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = GOLD
+stroke.Thickness = 2
+stroke.Parent = panel
+
+local gradient = Instance.new("UIGradient")
+gradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(
+        0,Color3.fromRGB(32,27,16)
+    ),
+    ColorSequenceKeypoint.new(
+        0.55,Color3.fromRGB(15,15,18)
+    ),
+    ColorSequenceKeypoint.new(
+        1,Color3.fromRGB(10,10,12)
+    )
+})
+gradient.Rotation = 115
+gradient.Parent = panel
+
+-- HEADER
+local header = Instance.new("TextButton")
+header.Size = UDim2.new(1,0,0,45)
+header.BackgroundColor3 = DARK2
+header.BorderSizePixel = 0
+header.Text = "GOATINI AUTO FISH"
+header.TextColor3 = GOLD
+header.Font = Enum.Font.GothamBold
+header.TextSize = 17
+header.AutoButtonColor = false
+header.Parent = panel
+
+Instance.new("UICorner",header).CornerRadius =
+    UDim.new(0,12)
+
+-- CLOSE
+local close = Instance.new("TextButton")
+close.Size = UDim2.fromOffset(28,27)
+close.Position = UDim2.new(1,-34,0,9)
+close.BackgroundColor3 = Color3.fromRGB(165,35,35)
+close.Text = "X"
+close.TextColor3 = WHITE
+close.Font = Enum.Font.GothamBold
+close.TextSize = 16
+close.BorderSizePixel = 0
+close.ZIndex = 4
+close.Parent = panel
+
+Instance.new("UICorner",close).CornerRadius =
+    UDim.new(0,7)
+
+-- LANGUAGE BUTTONS
+local function makeLanguageButton(text,x)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.fromOffset(48,27)
+    b.Position = UDim2.fromOffset(x,55)
+    b.BackgroundColor3 = DARK2
+    b.Text = text
+    b.TextColor3 = WHITE
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 13
+    b.BorderSizePixel = 0
+    b.Parent = panel
+
+    Instance.new("UICorner",b).CornerRadius =
+        UDim.new(0,6)
+
+    return b
+end
+
+local plButton = makeLanguageButton("PL",15)
+local enButton = makeLanguageButton("EN",69)
+
+local languageTitle = Instance.new("TextLabel")
+languageTitle.Size = UDim2.fromOffset(165,27)
+languageTitle.Position = UDim2.fromOffset(140,55)
+languageTitle.BackgroundTransparency = 1
+languageTitle.Text = "LANGUAGE / JĘZYK"
+languageTitle.TextColor3 = MUTED
+languageTitle.Font = Enum.Font.Gotham
+languageTitle.TextSize = 12
+languageTitle.TextXAlignment = Enum.TextXAlignment.Right
+languageTitle.Parent = panel
+
+local function makeLabel(text,y,color,size)
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(1,-30,0,23)
+    l.Position = UDim2.fromOffset(15,y)
+    l.BackgroundTransparency = 1
+    l.Text = text
+    l.TextColor3 = color or WHITE
+    l.Font = Enum.Font.Gotham
+    l.TextSize = size or 14
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.Parent = panel
+    return l
+end
+
+local status = makeLabel("",96,WHITE,14)
+local counter = makeLabel("",126,GOLD,14)
+
+-- START / STOP
+local toggle = Instance.new("TextButton")
+toggle.Size = UDim2.fromOffset(290,43)
+toggle.Position = UDim2.fromOffset(15,160)
+toggle.BackgroundColor3 = GOLD_DARK
+toggle.TextColor3 = WHITE
+toggle.Font = Enum.Font.GothamBold
+toggle.TextSize = 16
+toggle.BorderSizePixel = 0
+toggle.Parent = panel
+
+Instance.new("UICorner",toggle).CornerRadius =
+    UDim.new(0,9)
+
+local toggleGradient = Instance.new("UIGradient")
+toggleGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(
+        0,Color3.fromRGB(230,175,52)
+    ),
+    ColorSequenceKeypoint.new(
+        1,Color3.fromRGB(135,89,16)
+    )
+})
+toggleGradient.Rotation = 90
+toggleGradient.Parent = toggle
+
+local speed = makeLabel("",211,WHITE,14)
+
+local function makeSpeedButton(text,x)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.fromOffset(58,30)
+    b.Position = UDim2.fromOffset(x,239)
+    b.BackgroundColor3 = DARK2
+    b.Text = text
+    b.TextColor3 = GOLD
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 21
+    b.BorderSizePixel = 0
+    b.Parent = panel
+
+    Instance.new("UICorner",b).CornerRadius =
+        UDim.new(0,7)
+
+    local outline = Instance.new("UIStroke")
+    outline.Color = GOLD_DARK
+    outline.Thickness = 1
+    outline.Parent = b
+
+    return b
+end
+
+local minus = makeSpeedButton("-",15)
+local plus = makeSpeedButton("+",247)
+
+local hint = makeLabel("",267,MUTED,10)
+hint.TextXAlignment = Enum.TextXAlignment.Center
+
+-- UPDATE UI
+local function updateUI()
+    local t = translations[language]
+
+    status.Text = enabled and t.active or t.inactive
+    status.TextColor3 = enabled and GREEN or WHITE
+
+    counter.Text = t.clicks .. clicks
+    toggle.Text = enabled and t.stop or t.start
+    speed.Text = string.format(t.delay,clickDelay)
+    hint.Text = t.hint
+
+    plButton.BackgroundColor3 =
+        language == "PL" and GOLD_DARK or DARK2
+
+    enButton.BackgroundColor3 =
+        language == "EN" and GOLD_DARK or DARK2
+
+    plButton.TextColor3 =
+        language == "PL" and GOLD or WHITE
+
+    enButton.TextColor3 =
+        language == "EN" and GOLD or WHITE
+end
+
+local function toggleFish()
+    if not running then return end
+    enabled = not enabled
+    updateUI()
+end
+
+table.insert(connections,
+    toggle.MouseButton1Click:Connect(toggleFish)
+)
+
+table.insert(connections,
+    plButton.MouseButton1Click:Connect(function()
+        language = "PL"
+        updateUI()
+    end)
+)
+
+table.insert(connections,
+    enButton.MouseButton1Click:Connect(function()
+        language = "EN"
+        updateUI()
+    end)
+)
+
+table.insert(connections,
+    minus.MouseButton1Click:Connect(function()
+        clickDelay = math.max(
+            0.05,
+            math.round((clickDelay-0.05)*100)/100
+        )
+        updateUI()
+    end)
+)
+
+table.insert(connections,
+    plus.MouseButton1Click:Connect(function()
+        clickDelay = math.min(
+            0.50,
+            math.round((clickDelay+0.05)*100)/100
+        )
+        updateUI()
+    end)
+)
+
+table.insert(connections,
+    UIS.InputBegan:Connect(function(input,processed)
+        if processed or not running then return end
+
+        if input.KeyCode == Enum.KeyCode.M then
+            toggleFish()
+        end
+    end)
+)
+
+-- DRAGGABLE WINDOW
+local dragging = false
+local dragStart
+local startPosition
+
+table.insert(connections,
+    header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+
+            dragging = true
+            dragStart = input.Position
+            startPosition = panel.Position
+        end
+    end)
+)
+
+table.insert(connections,
+    UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+)
+
+table.insert(connections,
+    UIS.InputChanged:Connect(function(input)
+        if not dragging then return end
+
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch then
+
+            local delta = input.Position-dragStart
+
+            panel.Position = UDim2.new(
+                startPosition.X.Scale,
+                startPosition.X.Offset+delta.X,
+                startPosition.Y.Scale,
+                startPosition.Y.Offset+delta.Y
+            )
+        end
+    end)
+)
+
+-- FIND HAND
+local function findHand()
+    local fg = pg:FindFirstChild("FishingGui")
+    local fishing = fg and fg:FindFirstChild("Fishing")
+    local hand = fishing
+        and fishing:FindFirstChild("ClickSpeedUpActive")
+
+    if hand
+        and hand:IsA("GuiObject")
+        and hand.Visible
+        and hand.AbsoluteSize.X > 0
+        and hand.AbsoluteSize.Y > 0 then
+        return hand
+    end
+
+    return nil
+end
+
+-- AUTO CLICK WITHOUT MOVING CURSOR
+table.insert(connections,
+    RunService.Heartbeat:Connect(function()
+        if not running or not enabled then return end
+
+        local hand = findHand()
+        if not hand then return end
+
+        if os.clock()-lastClick < clickDelay then
+            return
+        end
+
+        local p = hand.AbsolutePosition
+        local s = hand.AbsoluteSize
+
+        local x = p.X+s.X/2
+        local y = p.Y+s.Y/2+45
+
+        lastClick = os.clock()
+
+        local ok,err = pcall(function()
+            VIM:SendMouseButtonEvent(
+                x,y,0,true,game,0
+            )
+            VIM:SendMouseButtonEvent(
+                x,y,0,false,game,0
+            )
+        end)
+
+        if ok then
+            clicks += 1
+            updateUI()
+        else
+            enabled = false
+            updateUI()
+            status.Text = translations[language].error
+            warn(err)
+        end
+    end)
+)
+
+-- FULL STOP
+local function stopScript()
+    if not running then return end
+
+    running = false
+    enabled = false
+
+    for _,connection in ipairs(connections) do
+        connection:Disconnect()
+    end
+
+    gui:Destroy()
+end
+
+env.GoatiniAutoFishStop = stopScript
+
+table.insert(connections,
+    close.MouseButton1Click:Connect(function()
+        stopScript()
+        env.GoatiniAutoFishStop = nil
+    end)
+)
+
+updateUI()
+print("GOATINI AUTO FISH | READY")
